@@ -129,9 +129,9 @@
     (should (equal empty "de")))
   ;; Test key validation
   (should-error (bencode #s(hash-table test equal data (0 0)))
-                :type 'bencode-bad-key)
+                :type 'bencode-invalid-key)
   (should-error (bencode #s(hash-table test equal data ([1 2 3] 0)))
-                :type 'bencode-bad-key)
+                :type 'bencode-invalid-key)
   ;; Test key encoding
   (let* ((table #s(hash-table test equal data ("α" 0 "β" 1 "ω" 2)))
          (utf-8 (bencode table))
