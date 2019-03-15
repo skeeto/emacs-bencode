@@ -11,6 +11,7 @@
 (define-error 'bencode "Bencode error")
 (define-error 'bencode-unsupported-type "Type cannot be encoded" 'bencode)
 (define-error 'bencode-invalid-key "Dictionary key is not a string" 'bencode)
+(define-error 'bencode-invalid-plist "Plist is invalid" 'bencode)
 
 (defsubst bencode--int (object)
   (insert "i" (number-to-string object) "e"))
@@ -23,6 +24,7 @@
     (insert (number-to-string (length object)) ":" object)))
 
 (defsubst bencode--hash-table-entries (object)
+  "Return a list of key-sorted entries in OBJECT with encoded keys."
   (let ((coding (or coding-system-for-write 'utf-8))
         (entries ()))
     (maphash (lambda (key value)
@@ -36,8 +38,35 @@
              object)
     (cl-sort entries #'string< :key #'car)))
 
+(defsubst bencode--plist-entries (object)
+  "Return a list of key-sorted entries in OBJECT with encoded keys."
+  (let ((coding (or coding-system-for-write 'utf-8))
+        (plist object)
+        (entries ()))
+    (while plist
+      (let ((key (pop plist)))
+        (unless (keywordp key)
+          (signal 'bencode-invalid-key key))
+        (when (null plist)
+          (signal 'bencode-invalid-plist object))
+        (let ((name (substring (symbol-name key) 1))
+              (value (pop plist)))
+          (if (multibyte-string-p name)
+              (let ((encoded (encode-coding-string name coding :nocopy)))
+                (push (cons encoded value) entries))
+            (push (cons name value) entries)))))
+    (cl-sort entries #'string< :key #'car)))
+
 (defun bencode (object)
   "Return a unibyte string encoding OBJECT with bencode.
+
+Supported types:
+* Integer
+* Multibyte and unibyte strings
+* List of supported types
+* Vector of supproted types (encodes to list)
+* Hash table with string keys (encodes to dictionary)
+* Plist with keyword symbol keys (encodes to dictionary)
 
 When multibyte strings are encountered either as values or
 dictionary keys, they are encoded with the coding system
@@ -47,6 +76,7 @@ same coding system must be used when decoding.
 Possible signals:
 * bencode-unsupported-type
 * bencode-invalid-key
+* bencode-invalid-plist
 
 This function is not recursive. It is safe to use on deeply
 nested data structures."
@@ -62,6 +92,11 @@ nested data structures."
                     (bencode--int value))
                    ((stringp value)
                     (bencode--string value))
+                   ((and (listp value)
+                         (keywordp (car value)))
+                    (insert "d")
+                    (let ((entries (bencode--plist-entries value)))
+                      (push (cons :dict entries) stack)))
                    ((listp value)
                     (insert "l")
                     (push (cons :list value) stack))
