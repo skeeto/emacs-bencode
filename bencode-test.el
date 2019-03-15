@@ -29,6 +29,50 @@
              do (cl-rotatef (aref v i) (aref v j))
              finally return (append v nil))))
 
+(defun bencode--gen-integer (s)
+  (- (bencode--random 2000000 s) 1000000))
+
+(defun bencode--gen-char (s)
+  ;;(+ 32 (bencode--random (- (* 2 256) 32) s))
+  (let ((set "π0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"))
+    (aref set (bencode--random (length set) s))))
+
+(defun bencode--gen-string (s)
+  (let* ((min 2)
+         (max 32)
+         (length (+ min (bencode--random (- max min) s)))
+         (string (make-string length 0)))
+    (prog1 string
+      (dotimes (i length)
+        (setf (aref string i) (bencode--gen-char s))))))
+
+(defun bencode--gen-list (s depth)
+  (let* ((min 0)
+         (max 16)
+         (length (+ min (bencode--random (- max min) s)))
+         (list (make-vector length nil)))
+    (prog1 list
+      (dotimes (i length)
+        (setf (aref list i) (bencode--gen s depth))))))
+
+(defun bencode--gen-dict (s depth)
+  (let ((dict (make-hash-table :test 'equal))
+        (min 4)
+        (max 100))
+    (prog1 dict
+      (dotimes (_ (+ min (bencode--random (- max min) s)))
+        (let ((key (bencode--gen-string s))
+              (value (bencode--gen s depth)))
+          (setf (gethash key dict) value))))))
+
+(defun bencode--gen (s depth)
+  (let ((draw (* 4.0 (expt (bencode--random 1.0 s) (+ 1.0 (* depth 4.0))))))
+    (cl-case (floor draw)
+      (0 (bencode--gen-integer s))
+      (1 (bencode--gen-string s))
+      (2 (bencode--gen-list s (+ 1 depth)))
+      (3 (bencode--gen-dict s (+ 1 depth))))))
+
 (ert-deftest bencode-unsupported ()
   (should-error (bencode 0.0)
                 :type 'bencode-unsupported-type)
@@ -117,5 +161,11 @@
             (when last
               (should (string> key last)))
             (setf last key)))))))
+
+(defun bencode-benchmark ()
+  (let ((data (bencode--gen-dict (bencode--random-state 493) 0)))
+    (print
+     (benchmark-run 10
+       (bencode data)))))
 
 ;;; bencode-test.el ends here
