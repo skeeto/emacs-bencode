@@ -5,7 +5,7 @@
 ;; Author: Christopher Wellons <wellons@nullprogram.com>
 ;; URL: https://github.com/skeeto/emacs-bencode
 ;; Version: 1.0
-;; Package-Requires: ((emacs "26.1"))
+;; Package-Requires: ((emacs "24.4"))
 
 ;;; Commentary:
 
@@ -300,7 +300,7 @@ inputs with data trailing beyond the point."
            (when last-key
              (when (string= last-key raw)
                (signal 'bencode-invalid-key (cons 'duplicate key)))
-             (when (string> last-key raw)
+             (when (string< raw last-key)
                (signal 'bencode-invalid-key (list 'string> last-key raw))))
            (setf (car last-key-stack) raw)
            (push key value-stack)))

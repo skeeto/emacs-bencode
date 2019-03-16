@@ -12,7 +12,7 @@
 (require 'ert)
 
 (defun bencode--random-state (seed)
-  (record 'bencode--random-state (float seed)))
+  (vector 'bencode--random-state (float seed)))
 
 (defun bencode--random (n state)
   "A PRNG with identical behavior between 32-bit and 64-bit Emacs."
@@ -186,7 +186,7 @@
                  (end (+ 7 (* i 9)))
                  (key (substring encoded beg end)))
             (when last
-              (should (string> key last)))
+              (should (string< last key)))
             (setf last key)))))))
 
 (ert-deftest bencode-decode-integer ()
