@@ -1,6 +1,10 @@
 ;;; bencode-test.el --- tests for bencode.el -*- lexical-binding: t; -*-
 
-;;; Code
+;;; Commentary:
+
+;; Test suite for the bencode package.
+
+;;; Code:
 
 (require 'bencode)
 (require 'ert)
@@ -275,6 +279,12 @@
                 :type 'bencode-invalid-byte)
   (should-error (bencode-decode-string "")
                 :type 'bencode-end-of-file)
+  (let* ((bencode-dictionary-type :hash-table)
+         (table (bencode-decode-string "d3:aaai0e3:bbbi1ee")))
+    (should (eql (gethash "aaa" table) 0))
+    (should (eql (gethash "bbb" table) 1)))
+  (let ((bencode-list-type :vector))
+    (should (equal (bencode-decode-string "li0ei1ei2ee") [0 1 2])))
   (with-temp-buffer
     ;; Problem: This won't blow the stack when parsing, but it could
     ;; when checking the result with `equal'.
@@ -301,5 +311,7 @@
                      (benchmark-run 10
                        (setf (point) (point-min))
                        (bencode-decode)))))))
+
+(provide 'bencode-test)
 
 ;;; bencode-test.el ends here

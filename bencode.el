@@ -8,14 +8,18 @@
 
 (require 'cl-lib)
 
-(define-error 'bencode "Bencode error")
+(defvar bencode-dictionary-type :plist
+  "Selects the dictionary representation when parsing.
+May be either :plist or :hash-table.")
 
-;; Encoding errors
+(defvar bencode-list-type :list
+  "Selects the list representation when parsing.
+May be either :list or :vector.")
+
+(define-error 'bencode "Bencode error")
 (define-error 'bencode-unsupported-type "Type cannot be encoded" 'bencode)
 (define-error 'bencode-invalid-key "Dictionary key is not a string" 'bencode)
 (define-error 'bencode-invalid-plist "Plist is invalid" 'bencode)
-
-;; Decoding errors
 (define-error 'bencode-end-of-file "End of file during parsing" 'end-of-file)
 (define-error 'bencode-invalid-byte "Invalid input byte" 'bencode)
 (define-error 'bencode-overflow "Integer too large" 'bencode)
@@ -195,12 +199,20 @@ nested data structures."
                      (decode-coding-string string coding :nocopy))
           (forward-char length))))))
 
-(defsubst bencode--to-dict (list)
+(defsubst bencode--to-plist (list)
   (let ((plist ()))
     (while list
       (push (pop list) plist)
       (push (intern (concat ":" (pop list))) plist))
     plist))
+
+(defsubst bencode--to-hash-table (list)
+  (let ((table (make-hash-table :test 'equal)))
+    (prog1 table
+      (while list
+        (let ((value (pop list))
+              (key (pop list)))
+          (setf (gethash key table) value))))))
 
 (defun bencode-decode ()
   "Decode the bencode data in the current buffer starting at point.
@@ -269,20 +281,22 @@ nested inputs."
         ;; End list or queue ops to read another value
         (:list
          (if (eql (char-after) ?e)
-             (progn
+             (let ((result (nreverse (car value-stack))))
                (forward-char)
-               (setf (car value-stack)
-                     (nreverse (car value-stack))))
+               (if (eq bencode-list-type :vector)
+                   (setf (car value-stack) (vconcat result))
+                 (setf (car value-stack) result)))
            (let ((ops (list :read :append :list)))
              (setf op-stack (nconc ops op-stack)))))
         ;; End dict or queue ops to read another entry
         (:dict
          (if (eql (char-after) ?e)
-             (progn
+             (let ((result (car value-stack)))
                (forward-char)
                (pop last-key-stack)
-               (setf (car value-stack)
-                     (bencode--to-dict (car value-stack))))
+               (if (eq bencode-dictionary-type :hash-table)
+                   (setf (car value-stack) (bencode--to-hash-table result))
+                 (setf (car value-stack) (bencode--to-plist result))))
            (let ((ops (list :key :append :read :append :dict)))
              (setf op-stack (nconc ops op-stack)))))))
     (car value-stack)))
