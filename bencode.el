@@ -45,9 +45,10 @@ instead bound dynamically around `bencode-decode'.")
 (define-error 'bencode-unsupported-type "Type cannot be encoded" 'bencode)
 (define-error 'bencode-invalid-key "Dictionary key is not a string" 'bencode)
 (define-error 'bencode-invalid-plist "Plist is invalid" 'bencode)
-(define-error 'bencode-end-of-file "End of file during parsing" 'end-of-file)
 (define-error 'bencode-invalid-byte "Invalid input byte" 'bencode)
 (define-error 'bencode-overflow "Integer too large" 'bencode)
+(define-error 'bencode-end-of-file "End of file during parsing"
+  '(bencode end-of-file))
 
 (defsubst bencode--int (object)
   "Encode OBJECT as an integer into the current buffer."
