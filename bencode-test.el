@@ -1,5 +1,7 @@
 ;;; bencode-test.el --- tests for bencode.el -*- lexical-binding: t; -*-
 
+;; This is free and unencumbered software released into the public domain.
+
 ;;; Commentary:
 
 ;; Test suite for the bencode package.
@@ -189,103 +191,103 @@
 
 (ert-deftest bencode-decode-integer ()
   ;; Invalid inputs
-  (should-error (bencode-decode-string "i1")
+  (should-error (bencode-decode "i1")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "i1f")
+  (should-error (bencode-decode "i1f")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "i01e")
+  (should-error (bencode-decode "i01e")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "i-0e")
+  (should-error (bencode-decode "i-0e")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "ie")
+  (should-error (bencode-decode "ie")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "i-e")
+  (should-error (bencode-decode "i-e")
                 :type 'bencode-invalid-byte)
   (when (or (floatp (+ 1 most-positive-fixnum))
             (< (+ 1 most-positive-fixnum) 0))
     ;; Only test overflow when bigint is not supported
     (let ((overflow (format "i%d0e" most-positive-fixnum)))
-      (should-error (bencode-decode-string overflow)
+      (should-error (bencode-decode overflow)
                     :type 'bencode-overflow)))
   ;; Valid inputs
-  (should (eql (bencode-decode-string "i0e") 0))
-  (should (eql (bencode-decode-string "i1e") 1))
-  (should (eql (bencode-decode-string "i-1e") -1))
-  (should (eql (bencode-decode-string "i1000e") 1000))
-  (should (eql (bencode-decode-string "i-123456e") -123456)))
+  (should (eql (bencode-decode "i0e") 0))
+  (should (eql (bencode-decode "i1e") 1))
+  (should (eql (bencode-decode "i-1e") -1))
+  (should (eql (bencode-decode "i1000e") 1000))
+  (should (eql (bencode-decode "i-123456e") -123456)))
 
 (ert-deftest bencode-decode-string ()
   ;; Invalid inputs
-  (should-error (bencode-decode-string "1")
+  (should-error (bencode-decode "1")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "5:hi")
+  (should-error (bencode-decode "5:hi")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "1x")
+  (should-error (bencode-decode "1x")
                 :type 'bencode-invalid-byte)
   ;; Valid inputs
-  (should (equal (bencode-decode-string "5:hello") "hello"))
-  (should (equal (bencode-decode-string "0:") ""))
-  (should (equal (bencode-decode-string "2:\xcf\x80") "π"))
-  (should (equal (bencode-decode-string "8:na\xc3\xafvety") "naïvety"))
+  (should (equal (bencode-decode "5:hello") "hello"))
+  (should (equal (bencode-decode "0:") ""))
+  (should (equal (bencode-decode "2:\xcf\x80") "π"))
+  (should (equal (bencode-decode "8:na\xc3\xafvety") "naïvety"))
   (let ((coding-system-for-read 'latin-1))
-    (should (equal (bencode-decode-string "7:na\xefvety") "naïvety"))))
+    (should (equal (bencode-decode "7:na\xefvety") "naïvety"))))
 
 (ert-deftest bencode-decode-list ()
   ;; Invalid inputs
-  (should-error (bencode-decode-string "l")
+  (should-error (bencode-decode "l")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "li0e")
+  (should-error (bencode-decode "li0e")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "li10e")
+  (should-error (bencode-decode "li10e")
                 :type 'bencode-end-of-file)
   ;; Valid inputs
-  (should (equal (bencode-decode-string "li0ei1ei2ee")
+  (should (equal (bencode-decode "li0ei1ei2ee")
                  '(0 1 2)))
-  (should (equal (bencode-decode-string "le")
+  (should (equal (bencode-decode "le")
                  '()))
-  (should (equal (bencode-decode-string "llleee")
+  (should (equal (bencode-decode "llleee")
                  '((()))))
-  (should (equal (bencode-decode-string "li1ell0:eei2ee")
+  (should (equal (bencode-decode "li1ell0:eei2ee")
                  '(1 (("")) 2))))
 
 
 (ert-deftest bencode-decode-dict ()
   ;; Invalid inputs
-  (should-error (bencode-decode-string "d")
+  (should-error (bencode-decode "d")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "d1:x")
+  (should-error (bencode-decode "d1:x")
                 :type 'bencode-end-of-file)
-  (should-error (bencode-decode-string "di0ei0ee")
+  (should-error (bencode-decode "di0ei0ee")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "d1:x0:1:a0:e")
+  (should-error (bencode-decode "d1:x0:1:a0:e")
                 :type 'bencode-invalid-key)
-  (should-error (bencode-decode-string "d1:x0:1:x0:e")
+  (should-error (bencode-decode "d1:x0:1:x0:e")
                 :type 'bencode-invalid-key)
-  (should-error (bencode-decode-string "d1:a0:2:bbe")
+  (should-error (bencode-decode "d1:a0:2:bbe")
                 :type 'bencode-invalid-byte)
   ;; Valid inputs
-  (should (equal (bencode-decode-string "de")
+  (should (equal (bencode-decode "de")
                  '()))
-  (should (equal (bencode-decode-string "d0:i0e1:ai1ee")
+  (should (equal (bencode-decode "d0:i0e1:ai1ee")
                  '(: 0 :a 1)))
-  (should (equal (bencode-decode-string "d1:a0:2:bb0:e")
+  (should (equal (bencode-decode "d1:a0:2:bb0:e")
                  '(:a "" :bb "")))
-  (should (equal (bencode-decode-string "d1:ad1:ai0eee")
+  (should (equal (bencode-decode "d1:ad1:ai0eee")
                  '(:a (:a 0)))))
 
 (ert-deftest bencode-decode ()
-  (should-error (bencode-decode-string "i0e ")
+  (should-error (bencode-decode "i0e ")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string " i0e")
+  (should-error (bencode-decode " i0e")
                 :type 'bencode-invalid-byte)
-  (should-error (bencode-decode-string "")
+  (should-error (bencode-decode "")
                 :type 'bencode-end-of-file)
   (let* ((bencode-dictionary-type :hash-table)
-         (table (bencode-decode-string "d3:aaai0e3:bbbi1ee")))
+         (table (bencode-decode "d3:aaai0e3:bbbi1ee")))
     (should (eql (gethash "aaa" table) 0))
     (should (eql (gethash "bbb" table) 1)))
   (let ((bencode-list-type :vector))
-    (should (equal (bencode-decode-string "li0ei1ei2ee") [0 1 2])))
+    (should (equal (bencode-decode "li0ei1ei2ee") [0 1 2])))
   (with-temp-buffer
     ;; Problem: This won't blow the stack when parsing, but it could
     ;; when checking the result with `equal'.
@@ -299,7 +301,7 @@
       (dotimes (_ depth)
         (setf output (list output)))
       (setf (point) (point-min))
-      (should (equal (bencode-decode) output)))))
+      (should (equal (bencode-decode-from-buffer) output)))))
 
 (defun bencode-benchmark ()
   (let ((data (bencode--gen-dict (bencode--random-state 493) 0)))
@@ -311,7 +313,7 @@
       (princ (format "decode: %S\n"
                      (benchmark-run 10
                        (setf (point) (point-min))
-                       (bencode-decode)))))))
+                       (bencode-decode-from-buffer)))))))
 
 (provide 'bencode-test)
 

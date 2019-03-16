@@ -2,19 +2,44 @@
 
 ;; This is free and unencumbered software released into the public domain.
 
+;; Author: Christopher Wellons <wellons@nullprogram.com>
+;; URL: https://github.com/skeeto/emacs-bencode
+;; Version: 1.0
+;; Package-Requires: ((emacs "26.1"))
+
 ;;; Commentary:
+
+;; This is a strict and robust bencode encoder and decoder. Encoding
+;; is done precisely, carefully taking into account character encoding
+;; issues. As such, the encoder always returns unibyte data. When
+;; encoding strings and keys, UTF-8 is used by default for both
+;; encoding and decoding, but this can be configured via
+;; `coding-system-for-write' and `coding-system-for-read'.
+
+;; The API entrypoints are:
+;; * `bencode-encode'
+;; * `bencode-encode-to-buffer'
+;; * `bencode-decode'
+;; * `bencode-decode-from-buffer'
+;; Variables:
+;; * `bencode-dictionary-type'
+;; * `bencode-list-type'
 
 ;;; Code:
 
 (require 'cl-lib)
 
 (defvar bencode-dictionary-type :plist
-  "Selects the dictionary representation when parsing.
-May be either :plist or :hash-table.")
+  "Selects the dictionary representation when decoding.
+
+May be either :plist or :hash-table. This shouldn't be set
+directly but instead bound dynamically around `bencode-decode'.")
 
 (defvar bencode-list-type :list
-  "Selects the list representation when parsing.
-May be either :list or :vector.")
+  "Selects the list representation when decoding.
+
+May be either :list or :vector. This shouldn't be set directly but
+instead bound dynamically around `bencode-decode'.")
 
 (define-error 'bencode "Bencode error")
 (define-error 'bencode-unsupported-type "Type cannot be encoded" 'bencode)
@@ -25,9 +50,11 @@ May be either :list or :vector.")
 (define-error 'bencode-overflow "Integer too large" 'bencode)
 
 (defsubst bencode--int (object)
+  "Encode OBJECT as an integer into the current buffer."
   (insert "i" (number-to-string object) "e"))
 
 (defsubst bencode--string (object)
+  "Encode OBJECT as a string into the current buffer."
   (if (multibyte-string-p object)
       (let* ((coding-system (or coding-system-for-write 'utf-8))
              (encoded (encode-coding-string object coding-system :nocopy)))
@@ -91,56 +118,68 @@ Possible error signals:
 
 This function is not recursive. It is safe to use on deeply
 nested data structures."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (bencode-encode-to-buffer object)
+    (buffer-string)))
+
+(defun bencode-encode-to-buffer (object)
+  "Like `bencode-encode' but to the current buffer at point."
   (let ((stack (list (cons :new object))))
-    (with-temp-buffer
-      (set-buffer-multibyte nil)
-      (while stack
-        (let* ((next (pop stack))
-               (value (cdr next)))
-          (cl-case (car next)
-            (:new
-             (cond ((integerp value)
-                    (bencode--int value))
-                   ((stringp value)
-                    (bencode--string value))
-                   ((and (listp value)
-                         (keywordp (car value)))
-                    (insert "d")
-                    (let ((entries (bencode--plist-entries value)))
-                      (push (cons :dict entries) stack)))
-                   ((listp value)
-                    (insert "l")
-                    (push (cons :list value) stack))
-                   ((vectorp value)
-                    (insert "l")
-                    (push (cons :vector (cons 0 value)) stack))
-                   ((hash-table-p value)
-                    (insert "d")
-                    (let ((entries (bencode--hash-table-entries value)))
-                      (push (cons :dict entries) stack)))
-                   ((signal 'bencode-unsupported-type object))))
-            (:dict
-             (if (null value)
+    (while stack
+      (let* ((next (pop stack))
+             (value (cdr next)))
+        (cl-case (car next)
+          ;; Start encoding a new, unexamined value
+          (:new
+           (cond ((integerp value)
+                  (bencode--int value))
+                 ((stringp value)
+                  (bencode--string value))
+                 ((and (listp value)
+                       (keywordp (car value)))
+                  (insert "d")
+                  (let ((entries (bencode--plist-entries value)))
+                    (push (cons :dict entries) stack)))
+                 ((listp value)
+                  (insert "l")
+                  (push (cons :list value) stack))
+                 ((vectorp value)
+                  (insert "l")
+                  (push (cons :vector (cons 0 value)) stack))
+                 ((hash-table-p value)
+                  (insert "d")
+                  (let ((entries (bencode--hash-table-entries value)))
+                    (push (cons :dict entries) stack)))
+                 ((signal 'bencode-unsupported-type object))))
+          ;; Continue encoding dictionary
+          ;; (:dict . remaining-dict)
+          (:dict
+           (if (null value)
+               (insert "e")
+             (let ((entry (car value)))
+               (bencode--string (car entry))
+               (push (cons :dict (cdr value)) stack)
+               (push (cons :new (cdr entry)) stack))))
+          ;; Continue encoding list
+          ;; (:list . remaining-list)
+          (:list
+           (if (null value)
+               (insert "e")
+             (push (cons :list (cdr value)) stack)
+             (push (cons :new (car value)) stack)))
+          ;; Continue encoding vector (as list)
+          ;; (:vector index . vector)
+          (:vector
+           (let ((i (car value))
+                 (v (cdr value)))
+             (if (= i (length v))
                  (insert "e")
-               (let ((entry (car value)))
-                 (bencode--string (car entry))
-                 (push (cons :dict (cdr value)) stack)
-                 (push (cons :new (cdr entry)) stack))))
-            (:list
-             (if (null value)
-                 (insert "e")
-               (push (cons :list (cdr value)) stack)
-               (push (cons :new (car value)) stack)))
-            (:vector
-             (let ((i (car value))
-                   (v (cdr value)))
-               (if (= i (length v))
-                   (insert "e")
-                 (push (cons :vector (cons (+ i 1) v)) stack)
-                 (push (cons :new (aref v i)) stack)))))))
-      (buffer-string))))
+               (push (cons :vector (cons (+ i 1) v)) stack)
+               (push (cons :new (aref v i)) stack)))))))))
 
 (defsubst bencode--decode-int ()
+  "Decode an integer from the current buffer at point."
   (forward-char)
   (let ((start (point)))
     ;; Don't allow leading zeros
@@ -178,6 +217,9 @@ nested data structures."
           result)))))
 
 (defsubst bencode--decode-string ()
+  "Decode a string from the current buffer at point.
+
+Returns cons of (raw . decoded)."
   (let ((coding (or coding-system-for-read 'utf-8))
         (start (point)))
     ;; Skip over length digits
@@ -200,6 +242,7 @@ nested data structures."
           (forward-char length))))))
 
 (defsubst bencode--to-plist (list)
+  "Convert a series of parsed dictionary entries into a plist."
   (let ((plist ()))
     (while list
       (push (pop list) plist)
@@ -207,6 +250,7 @@ nested data structures."
     plist))
 
 (defsubst bencode--to-hash-table (list)
+  "Convert a series of parsed dictionary entries into a hash table."
   (let ((table (make-hash-table :test 'equal)))
     (prog1 table
       (while list
@@ -214,40 +258,22 @@ nested data structures."
               (key (pop list)))
           (setf (gethash key table) value))))))
 
-(defun bencode-decode ()
-  "Decode the bencode data in the current buffer starting at point.
+(defun bencode-decode-from-buffer ()
+  "Like `bencode-decode' but from the current buffer starting at point.
 
 The point is left where parsing finished. You may want to reject
-inputs with data trailing beyond the point.
-
-Input should generally be unibyte. Strings parsed as values and
-keys will be decoded using the coding system indicated by
-`coding-system-for-read', or UTF-8 if nil. The same coding system
-should be used as when encoding. There are never decoding errors
-since Emacs can preserve arbitrary byte data across encoding and
-decoding. See \"Text Representations\" in the Gnu Emacs Lisp
-Reference Manual.
-
-Input is strictly validated and invalid inputs are rejected. This
-includes dictionary key constraints. Dictionaries are decoded
-into plists. Lists are decoded into lists. If an integer is too
-large to store in an Emacs integer, the decoder will signal an
-overlow error.
-
-Possible error signals:
-* bencode-end-of-file
-* bencode-invalid-key
-* bencode-invalid-byte
-* bencode-overflow
-
-This function is not recursive. It is safe to parse on deeply
-nested inputs."
-  (let ((op-stack '(:read))
-        (value-stack ())
-        (last-key-stack ()))
+inputs with data trailing beyond the point."
+  ;; Operations are pushed onto an operation stack. One operation is
+  ;; executed once per iteration. Some operations push multiple new
+  ;; operations onto the stack. When no more operations are left,
+  ;; return the remaining element from the value stack.
+  (let ((op-stack '(:read))    ; operations stack
+        (value-stack ())       ; stack of parsed values
+        (last-key-stack ()))   ; last key seen in top dictionary
     (while op-stack
       (cl-case (pop op-stack)
-        ;; Read an arbitrary value
+        ;; Figure out what type of value is to be read next and
+        ;; prepare stacks accordingly.
         (:read
          (cl-case (char-after)
            ((nil) (signal 'bencode-end-of-file (point)))
@@ -278,7 +304,7 @@ nested inputs."
                (signal 'bencode-invalid-key (list 'string> last-key raw))))
            (setf (car last-key-stack) raw)
            (push key value-stack)))
-        ;; End list or queue ops to read another value
+        ;; End list, or queue operations to read another value
         (:list
          (if (eql (char-after) ?e)
              (let ((result (nreverse (car value-stack))))
@@ -288,7 +314,7 @@ nested inputs."
                  (setf (car value-stack) result)))
            (let ((ops (list :read :append :list)))
              (setf op-stack (nconc ops op-stack)))))
-        ;; End dict or queue ops to read another entry
+        ;; End dict, or queue operations to read another entry
         (:dict
          (if (eql (char-after) ?e)
              (let ((result (car value-stack)))
@@ -301,14 +327,35 @@ nested inputs."
              (setf op-stack (nconc ops op-stack)))))))
     (car value-stack)))
 
-(defun bencode-decode-string (string)
-  "Like `bencode-decode' but from STRING instead of the current buffer.
+(defun bencode-decode (string)
+  "Decode bencode data from STRING.
 
-This function signals an error if STRING contains trailing data."
+Input should generally be unibyte. Strings parsed as values and
+keys will be decoded using the coding system indicated by
+`coding-system-for-read', or UTF-8 if nil. The same coding system
+should be used as when encoding. There are never decoding errors
+since Emacs can preserve arbitrary byte data across encoding and
+decoding. See \"Text Representations\" in the Gnu Emacs Lisp
+Reference Manual.
+
+Input is strictly validated and invalid inputs are rejected. This
+includes dictionary key constraints. Dictionaries are decoded
+into plists. Lists are decoded into lists. If an integer is too
+large to store in an Emacs integer, the decoder will signal an
+overlow error. Signals an error if STRING contains trailing data.
+
+Possible error signals:
+* bencode-end-of-file
+* bencode-invalid-key
+* bencode-invalid-byte
+* bencode-overflow
+
+This function is not recursive. It is safe to parse on deeply
+nested inputs."
   (with-temp-buffer
     (insert string)
     (setf (point) (point-min))
-    (prog1 (bencode-decode)
+    (prog1 (bencode-decode-from-buffer)
       (when (< (point) (point-max))
         (signal 'bencode-invalid-byte (cons "Trailing data" (point)))))))
 
