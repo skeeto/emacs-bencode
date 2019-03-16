@@ -310,8 +310,8 @@ inputs with data trailing beyond the point."
                (if (eq list-type 'vector)
                    (setf (car value-stack) (vconcat result))
                  (setf (car value-stack) result)))
-           (let ((ops (list :read :append)))
-             (setf op-stack (nconc ops op-stack)))))
+           (push :append op-stack)
+           (push :read op-stack)))
         ;; End dict, or queue operations to read another entry
         (:dict
          (if (eql (char-after) ?e)
@@ -322,8 +322,9 @@ inputs with data trailing beyond the point."
                (if (eq dict-type 'hash-table)
                    (setf (car value-stack) (bencode--to-hash-table result))
                  (setf (car value-stack) (bencode--to-plist result))))
-           (let ((ops (list :key :read :append)))
-             (setf op-stack (nconc ops op-stack)))))))
+           (push :append op-stack)
+           (push :read op-stack)
+           (push :key op-stack)))))
     (car value-stack)))
 
 (cl-defun bencode-decode
