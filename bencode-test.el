@@ -280,6 +280,8 @@
                 :type 'bencode-invalid-byte)
   (should-error (bencode-decode "")
                 :type 'bencode-end-of-file)
+  (should-error (bencode-decode "x")
+                :type 'bencode-invalid-byte)
   (let ((table (bencode-decode "d3:aaai0e3:bbbi1ee" :dict-type 'hash-table)))
     (should (eql (gethash "aaa" table) 0))
     (should (eql (gethash "bbb" table) 1)))

@@ -263,7 +263,6 @@ inputs with data trailing beyond the point."
         (:read
          (cl-case (char-after)
            ((nil) (signal 'bencode-end-of-file (point)))
-           (?e (signal 'bencode-invalid-byte (point)))
            (?i (push (bencode--decode-int) value-stack))
            (?l (forward-char)
                (push :list op-stack)
@@ -273,7 +272,8 @@ inputs with data trailing beyond the point."
                (push nil value-stack)
                (push nil last-key-stack))
            ((?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9)
-            (push (cdr (bencode--decode-string coding-system)) value-stack))))
+            (push (cdr (bencode--decode-string coding-system)) value-stack))
+           (t (signal 'bencode-invalid-byte (point)))))
         ;; Push value at top of value stack onto list just below it
         (:append
          (push (pop value-stack) (car value-stack)))
