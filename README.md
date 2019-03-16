@@ -21,12 +21,6 @@ very deeply nested inputs.
 
 (bencode-decode-from-buffer)
 ;; Like `bencode-decode' but from the current buffer starting at point.
-
-bencode-dictionary-type [variable]
-;; Selects the dictionary representation when decoding. (:plist, :hash-table)
-
-bencode-list-type [variable]
-;; Selects the list representation when decoding. (:list, :vector)
 ```
 
 ## Examples
@@ -50,9 +44,9 @@ Decoding:
 (bencode-decode "d3:barl5:alpha4:betae3:fooli1ei2ei3eee")
 ;; => (:bar ("alpha" "beta") :foo (1 2 3))
 
-(let ((bencode-dictionary-type :hash-table)
-      (bencode-list-type :vector))
-  (bencode-decode "d3:barl5:alpha4:betae3:fooli1ei2ei3eee"))
+(bencode-decode "d3:barl5:alpha4:betae3:fooli1ei2ei3eee"
+                :dict-type 'hash-table
+                :list-type 'vector)
 ;; => #s(hash-table test equal data ("foo" [1 2 3] "bar" ["alpha" "beta"]))
 ```
 
@@ -65,8 +59,7 @@ and it's not possible to choose string encoding later. For example:
 (bencode-encode "naïvety")
 ;; => "8:na\xc3\xafvety"  (default UTF-8 encoding)
 
-(let ((coding-system-for-write 'latin-1))
-  (bencode-encode "naïvety"))
+(bencode-encode "naïvety" :coding-system 'latin-1)
 ;; => "7:na\xefvety"  (using ISO 8859-1)
 ```
 
