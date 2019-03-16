@@ -121,7 +121,7 @@ nested data structures."
                   (bencode--int value))
                  ((stringp value)
                   (bencode--string value coding-system))
-                 ((and (listp value)
+                 ((and (consp value)
                        (keywordp (car value)))
                   (insert "d")
                   (let ((entries (bencode--plist-entries value coding-system)))
