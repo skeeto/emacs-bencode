@@ -296,7 +296,7 @@ inputs with data trailing beyond the point."
              (when (string< raw last-key)
                (signal 'bencode-invalid-key (list 'string> last-key raw))))
            (setf (car last-key-stack) raw)
-           (push key value-stack)))
+           (push key (car value-stack))))
         ;; End list, or queue operations to read another value
         (:list
          (if (eql (char-after) ?e)
@@ -316,7 +316,7 @@ inputs with data trailing beyond the point."
                (if (eq dict-type 'hash-table)
                    (setf (car value-stack) (bencode--to-hash-table result))
                  (setf (car value-stack) (bencode--to-plist result))))
-           (let ((ops (list :key :append :read :append :dict)))
+           (let ((ops (list :key :read :append :dict)))
              (setf op-stack (nconc ops op-stack)))))))
     (car value-stack)))
 
