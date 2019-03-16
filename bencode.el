@@ -27,7 +27,7 @@
 
 (define-error 'bencode "Bencode error")
 (define-error 'bencode-unsupported-type "Type cannot be encoded" 'bencode)
-(define-error 'bencode-invalid-key "Dictionary key is not a string" 'bencode)
+(define-error 'bencode-invalid-key "Not a valid dictionary key" 'bencode)
 (define-error 'bencode-invalid-plist "Plist is invalid" 'bencode)
 (define-error 'bencode-invalid-byte "Invalid input byte" 'bencode)
 (define-error 'bencode-overflow "Integer too large" 'bencode)
