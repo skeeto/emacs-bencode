@@ -56,14 +56,14 @@ instead bound dynamically around `bencode-decode'.")
 (defsubst bencode--string (object)
   "Encode OBJECT as a string into the current buffer."
   (if (multibyte-string-p object)
-      (let* ((coding-system (or coding-system-for-write 'utf-8))
-             (encoded (encode-coding-string object coding-system :nocopy)))
+      (let* ((coding coding-system-for-write)
+             (encoded (encode-coding-string object coding :nocopy)))
         (insert (number-to-string (length encoded)) ":" encoded))
     (insert (number-to-string (length object)) ":" object)))
 
 (defsubst bencode--hash-table-entries (object)
   "Return a list of key-sorted entries in OBJECT with encoded keys."
-  (let ((coding (or coding-system-for-write 'utf-8))
+  (let ((coding coding-system-for-write)
         (entries ()))
     (maphash (lambda (key value)
                (cond
@@ -78,7 +78,7 @@ instead bound dynamically around `bencode-decode'.")
 
 (defsubst bencode--plist-entries (object)
   "Return a list of key-sorted entries in OBJECT with encoded keys."
-  (let ((coding (or coding-system-for-write 'utf-8))
+  (let ((coding coding-system-for-write)
         (plist object)
         (entries ()))
     (while plist
@@ -125,7 +125,8 @@ nested data structures."
 
 (defun bencode-encode-to-buffer (object)
   "Like `bencode-encode' but to the current buffer at point."
-  (let ((stack (list (cons :new object))))
+  (let ((coding-system-for-write (or coding-system-for-write 'utf-8))
+        (stack (list (cons :new object))))
     (while stack
       (let* ((next (pop stack))
              (value (cdr next)))
@@ -220,7 +221,7 @@ nested data structures."
   "Decode a string from the current buffer at point.
 
 Returns cons of (raw . decoded)."
-  (let ((coding (or coding-system-for-read 'utf-8))
+  (let ((coding coding-system-for-read)
         (start (point)))
     ;; Skip over length digits
     (unless (re-search-forward "[^0-9]" nil :noerror)
@@ -267,7 +268,8 @@ inputs with data trailing beyond the point."
   ;; executed once per iteration. Some operations push multiple new
   ;; operations onto the stack. When no more operations are left,
   ;; return the remaining element from the value stack.
-  (let ((op-stack '(:read))    ; operations stack
+  (let ((coding-system-for-read (or coding-system-for-read 'utf-8))
+        (op-stack '(:read))    ; operations stack
         (value-stack ())       ; stack of parsed values
         (last-key-stack ()))   ; last key seen in top dictionary
     (while op-stack
