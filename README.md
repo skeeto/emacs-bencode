@@ -10,16 +10,20 @@ Neither the encoder nor decoder is recursive, so it's safe to parse
 very deeply nested inputs.
 
 ```el
-(bencode-encode OBJECT)
+(bencode-encode OBJECT &key (CODING-SYSTEM 'utf-8))
 ;; Return a unibyte string encoding OBJECT with bencode.
 
-(bencode-encode-to-buffer OBJECT)
+(bencode-encode-to-buffer OBJECT &key (CODING-SYSTEM 'utf-8))
 ;; Like `bencode-encode' but to the current buffer at point.
 
-(bencode-decode STRING)
+(bencode-decode STRING &key (CODING-SYSTEM 'utf-8)
+                            (LIST-TYPE 'list)
+                            (DICT-TYPE 'plist))
 ;; Decode bencode data from STRING.
 
-(bencode-decode-from-buffer)
+(bencode-decode-from-buffer &key (CODING-SYSTEM 'utf-8)
+                                 (LIST-TYPE 'list)
+                                 (DICT-TYPE 'plist))
 ;; Like `bencode-decode' but from the current buffer starting at point.
 ```
 
