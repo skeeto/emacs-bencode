@@ -112,11 +112,12 @@ nested data structures."
   "Like `bencode-encode' but to the current buffer at point."
   (let ((stack (list (cons :new object))))
     (while stack
-      (let* ((next (pop stack))
+      (let* ((next (car stack))
              (value (cdr next)))
         (cl-case (car next)
           ;; Start encoding a new, unexamined value
           (:new
+           (pop stack)
            (cond ((integerp value)
                   (bencode--int value))
                  ((stringp value)
@@ -142,17 +143,21 @@ nested data structures."
           ;; (:dict . remaining-dict)
           (:dict
            (if (null value)
-               (insert "e")
+               (progn
+                 (pop stack)
+                 (insert "e"))
              (let ((entry (car value)))
                (bencode--string (car entry))
-               (push (cons :dict (cdr value)) stack)
+               (setf (cdr next) (cdr value))
                (push (cons :new (cdr entry)) stack))))
           ;; Continue encoding list
           ;; (:list . remaining-list)
           (:list
            (if (null value)
-               (insert "e")
-             (push (cons :list (cdr value)) stack)
+               (progn
+                 (pop stack)
+                 (insert "e"))
+             (setf (cdr next) (cdr value))
              (push (cons :new (car value)) stack)))
           ;; Continue encoding vector (as list)
           ;; (:vector index . vector)
@@ -160,8 +165,10 @@ nested data structures."
            (let ((i (car value))
                  (v (cdr value)))
              (if (= i (length v))
-                 (insert "e")
-               (push (cons :vector (cons (+ i 1) v)) stack)
+                 (progn
+                   (pop stack)
+                   (insert "e"))
+               (setf (car value) (+ i 1))
                (push (cons :new (aref v i)) stack)))))))))
 
 (defsubst bencode--decode-int ()
