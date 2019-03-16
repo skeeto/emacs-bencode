@@ -29,6 +29,33 @@ bencode-list-type [variable]
 ;; Selects the list representation when decoding. (:list, :vector)
 ```
 
+## Examples
+
+Encoding:
+
+```el
+(bencode-encode '(1 2 3 "alpha" "beta"))
+;; => "li1ei2ei3e5:alpha4:betae"
+
+(bencode-encode '(:foo (1 2 3) :bar ("alpha" "beta")))
+;; => "d3:barl5:alpha4:betae3:fooli1ei2ei3eee"
+```
+
+Decoding:
+
+```el
+(bencode-decode "li1ei2ei3e5:alpha4:betae")
+;; => (1 2 3 "alpha" "beta")
+
+(bencode-decode "d3:barl5:alpha4:betae3:fooli1ei2ei3eee")
+;; => (:bar ("alpha" "beta") :foo (1 2 3))
+
+(let ((bencode-dictionary-type :hash-table)
+      (bencode-list-type :vector))
+  (bencode-decode "d3:barl5:alpha4:betae3:fooli1ei2ei3eee"))
+;; => #s(hash-table test equal data ("foo" [1 2 3] "bar" ["alpha" "beta"]))
+```
+
 ## Character encoding
 
 Why is character encoding important? Bencode strings are bytestrings,
