@@ -261,9 +261,9 @@ inputs with data trailing beyond the point."
   ;; executed once per iteration. Some operations push multiple new
   ;; operations onto the stack. When no more operations are left,
   ;; return the remaining element from the value stack.
-  (let ((op-stack '(:read))    ; operations stack
-        (value-stack ())       ; stack of parsed values
-        (last-key-stack ()))   ; last key seen in top dictionary
+  (let ((op-stack '(:read))       ; operations stack
+        (value-stack (list nil))  ; stack of parsed values
+        (last-key-stack ()))      ; last key seen in top dictionary
     (while op-stack
       (cl-case (car op-stack)
         ;; Figure out what type of value is to be read next and
@@ -272,7 +272,7 @@ inputs with data trailing beyond the point."
          (pop op-stack)
          (cl-case (char-after)
            ((nil) (signal 'bencode-end-of-file (point)))
-           (?i (push (bencode--decode-int) value-stack))
+           (?i (push (bencode--decode-int) (car value-stack)))
            (?l (forward-char)
                (push :list op-stack)
                (push nil value-stack))
@@ -281,13 +281,10 @@ inputs with data trailing beyond the point."
                (push nil value-stack)
                (push nil last-key-stack))
            ((?0 ?1 ?2 ?3 ?4 ?5 ?6 ?7 ?8 ?9)
-            (push (cdr (bencode--decode-string coding-system)) value-stack))
+            (push (cdr (bencode--decode-string coding-system))
+                  (car value-stack)))
            (t (signal 'bencode-invalid-byte (point)))))
-        ;; Push value at top of value stack onto list just below it
-        (:append
-         (pop op-stack)
-         (push (pop value-stack) (car value-stack)))
-        ;; Read a key and push onto the value stack
+        ;; Read a key and push it onto the list on top of the value stack
         (:key
          (pop op-stack)
          (let* ((string (bencode--decode-string coding-system))
@@ -304,28 +301,26 @@ inputs with data trailing beyond the point."
         ;; End list, or queue operations to read another value
         (:list
          (if (eql (char-after) ?e)
-             (let ((result (nreverse (car value-stack))))
+             (let ((result (nreverse (pop value-stack))))
                (forward-char)
                (pop op-stack)
                (if (eq list-type 'vector)
-                   (setf (car value-stack) (vconcat result))
-                 (setf (car value-stack) result)))
-           (push :append op-stack)
+                   (push (vconcat result) (car value-stack))
+                 (push result (car value-stack))))
            (push :read op-stack)))
         ;; End dict, or queue operations to read another entry
         (:dict
          (if (eql (char-after) ?e)
-             (let ((result (car value-stack)))
+             (let ((result (pop value-stack)))
                (forward-char)
                (pop op-stack)
                (pop last-key-stack)
                (if (eq dict-type 'hash-table)
-                   (setf (car value-stack) (bencode--to-hash-table result))
-                 (setf (car value-stack) (bencode--to-plist result))))
-           (push :append op-stack)
+                   (push (bencode--to-hash-table result) (car value-stack))
+                 (push (bencode--to-plist result) (car value-stack))))
            (push :read op-stack)
            (push :key op-stack)))))
-    (car value-stack)))
+    (caar value-stack)))
 
 (cl-defun bencode-decode
     (string &key (list-type 'list) (dict-type 'plist) (coding-system 'utf-8))
