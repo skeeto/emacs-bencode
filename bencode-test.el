@@ -60,14 +60,15 @@
         (setf (aref list i) (bencode--gen s depth))))))
 
 (defun bencode--gen-dict (s depth)
-  (let ((dict (make-hash-table :test 'equal))
+  (let ((dict ())
         (min 4)
         (max 100))
-    (prog1 dict
-      (dotimes (_ (+ min (bencode--random (- max min) s)))
-        (let ((key (bencode--gen-string s))
-              (value (bencode--gen s depth)))
-          (setf (gethash key dict) value))))))
+    (dotimes (_ (+ min (bencode--random (- max min) s)))
+      (let ((key (bencode--gen-string s))
+            (value (bencode--gen s depth)))
+        (push value dict)
+        (push (intern (concat ":" key)) dict)))
+    dict))
 
 (defun bencode--gen (s depth)
   (let ((draw (* 4.0 (expt (bencode--random 1.0 s) (+ 1.0 (* depth 4.0))))))

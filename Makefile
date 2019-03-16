@@ -12,7 +12,7 @@ clean:
 check: bencode-test.elc
 	$(EMACS) -batch -Q -L . -l bencode-test.elc -f ert-run-tests-batch
 
-bench:
+bench: bencode-test.elc
 	$(EMACS) -batch -Q -L . -l bencode-test.elc -f bencode-benchmark
 
 .SUFFIXES: .el .elc
