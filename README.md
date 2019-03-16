@@ -1,10 +1,12 @@
 # Bencode encoder / decoder for Emacs Lisp
 
 This package provides a strict and robust [bencode][bencode] encoder
-and decoder. Encoding is done precisely, carefully taking into account
-character encoding issues. As such, the encoder always returns unibyte
-data. When encoding strings and keys, UTF-8 is used by default for
-both encoding and decoding, but this is configurable.
+and decoder. Encoding is precise, taking into account character
+encoding issues. As such, the encoder always returns unibyte data
+intended to be written out as raw binary data without additional
+character encoding. When encoding strings and keys, UTF-8 is used by
+default. The decoder strictly valides its input, rejecting invalid
+inputs.
 
 Neither the encoder nor decoder is recursive, so it's safe to parse
 very deeply nested inputs.
@@ -54,10 +56,13 @@ Decoding:
 ;; => #s(hash-table test equal data ("foo" [1 2 3] "bar" ["alpha" "beta"]))
 ```
 
+Run the test suite with `make check` and benchmark with `make bench`.
+
 ## Character encoding
 
-Why is character encoding important? Bencode strings are bytestrings,
-and it's not possible to choose string encoding later. For example:
+Why is character encoding so important? Bencoded data are byte
+strings, not codepoint. It's generally not possible to decide string
+encoding after encoding with bencode. For example:
 
 ```el
 (bencode-encode "naïvety")
@@ -67,8 +72,8 @@ and it's not possible to choose string encoding later. For example:
 ;; => "7:na\xefvety"  (using ISO 8859-1)
 ```
 
-String encoding depends on the character encoding, which may even
-affect dictionary key ordering.
+String encoding depends on the character encoding, and may even affect
+dictionary key ordering.
 
 
 [bencode]: https://en.wikipedia.org/wiki/Bencode
