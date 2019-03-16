@@ -264,10 +264,11 @@ inputs with data trailing beyond the point."
         (value-stack ())       ; stack of parsed values
         (last-key-stack ()))   ; last key seen in top dictionary
     (while op-stack
-      (cl-case (pop op-stack)
+      (cl-case (car op-stack)
         ;; Figure out what type of value is to be read next and
         ;; prepare stacks accordingly.
         (:read
+         (pop op-stack)
          (cl-case (char-after)
            ((nil) (signal 'bencode-end-of-file (point)))
            (?i (push (bencode--decode-int) value-stack))
@@ -283,9 +284,11 @@ inputs with data trailing beyond the point."
            (t (signal 'bencode-invalid-byte (point)))))
         ;; Push value at top of value stack onto list just below it
         (:append
+         (pop op-stack)
          (push (pop value-stack) (car value-stack)))
         ;; Read a key and push onto the value stack
         (:key
+         (pop op-stack)
          (let* ((string (bencode--decode-string coding-system))
                 (raw (car string))
                 (key (cdr string))
@@ -302,21 +305,23 @@ inputs with data trailing beyond the point."
          (if (eql (char-after) ?e)
              (let ((result (nreverse (car value-stack))))
                (forward-char)
+               (pop op-stack)
                (if (eq list-type 'vector)
                    (setf (car value-stack) (vconcat result))
                  (setf (car value-stack) result)))
-           (let ((ops (list :read :append :list)))
+           (let ((ops (list :read :append)))
              (setf op-stack (nconc ops op-stack)))))
         ;; End dict, or queue operations to read another entry
         (:dict
          (if (eql (char-after) ?e)
              (let ((result (car value-stack)))
                (forward-char)
+               (pop op-stack)
                (pop last-key-stack)
                (if (eq dict-type 'hash-table)
                    (setf (car value-stack) (bencode--to-hash-table result))
                  (setf (car value-stack) (bencode--to-plist result))))
-           (let ((ops (list :key :read :append :dict)))
+           (let ((ops (list :key :read :append)))
              (setf op-stack (nconc ops op-stack)))))))
     (car value-stack)))
 
