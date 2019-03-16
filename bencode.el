@@ -146,8 +146,9 @@ nested data structures."
                (progn
                  (pop stack)
                  (insert "e"))
-             (let ((entry (car value)))
-               (bencode--string (car entry))
+             (let* ((entry (car value))
+                    (key (car entry)))
+               (insert (number-to-string (length key)) ":" key)
                (setf (cdr next) (cdr value))
                (push (cons :new (cdr entry)) stack))))
           ;; Continue encoding list
