@@ -7,7 +7,7 @@ data. When encoding strings and keys, UTF-8 is used by default for
 both encoding and decoding, but this is configurable.
 
 Neither the encoder nor decoder is recursive, so it's safe to parse
-arbitrarily nested inputs.
+very deeply nested inputs.
 
 ```el
 (bencode-encode OBJECT)

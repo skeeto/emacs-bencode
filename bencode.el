@@ -116,7 +116,7 @@ Possible error signals:
 * bencode-invalid-key
 * bencode-invalid-plist
 
-This function is not recursive. It is safe to use on deeply
+This function is not recursive. It is safe to input very deeply
 nested data structures."
   (with-temp-buffer
     (set-buffer-multibyte nil)
@@ -352,7 +352,7 @@ Possible error signals:
 * bencode-invalid-byte
 * bencode-overflow
 
-This function is not recursive. It is safe to parse on deeply
+This function is not recursive. It is safe to parse very deeply
 nested inputs."
   (with-temp-buffer
     (insert string)
