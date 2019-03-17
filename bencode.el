@@ -217,24 +217,33 @@ nested data structures."
 
 Returns cons of (raw . decoded)."
   (let ((start (point)))
-    ;; Skip over length digits
-    (unless (re-search-forward "[^0-9]" nil :noerror)
-     (signal 'bencode-end-of-file (point)))
-    ;; Did we find a colon?
-    (unless (eql ?: (char-before))
-      (signal 'bencode-invalid-byte
-              (cons (char-before) (point))))
-    (let* ((length-string (buffer-substring start (- (point) 1)))
-           (length (string-to-number length-string)))
-      (when (floatp length)
-        (signal 'bencode-overflow
-                (cons length-string length)))
-      (when (> (+ (point) length) (point-max))
-        (signal 'bencode-end-of-file (+ (point) length)))
-      (let ((string (buffer-substring (point) (+ (point) length))))
-        (prog1 (cons string
-                     (decode-coding-string string coding-system :nocopy))
-          (forward-char length))))))
+    (if (eql (char-after) ?0)
+        ;; Handle zero length as a special case
+        (progn
+          (forward-char)
+          (if (eql (char-after) ?:)
+              (prog1 '("" . "")
+                (forward-char))
+            (signal 'bencode-invalid-byte
+                    (cons (char-after) (point)))))
+      ;; Skip over length digits
+      (unless (re-search-forward "[^0-9]" nil :noerror)
+        (signal 'bencode-end-of-file (point)))
+      ;; Did we find a colon?
+      (unless (eql ?: (char-before))
+        (signal 'bencode-invalid-byte
+                (cons (char-before) (point))))
+      (let* ((length-string (buffer-substring start (- (point) 1)))
+             (length (string-to-number length-string)))
+        (when (floatp length)
+          (signal 'bencode-overflow
+                  (cons length-string length)))
+        (when (> (+ (point) length) (point-max))
+          (signal 'bencode-end-of-file (+ (point) length)))
+        (let ((string (buffer-substring (point) (+ (point) length))))
+          (prog1 (cons string
+                       (decode-coding-string string coding-system :nocopy))
+            (forward-char length)))))))
 
 (defsubst bencode--to-plist (list)
   "Convert a series of parsed dictionary entries into a plist."

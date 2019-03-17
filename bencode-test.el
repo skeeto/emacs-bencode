@@ -222,6 +222,8 @@
                 :type 'bencode-end-of-file)
   (should-error (bencode-decode "1x")
                 :type 'bencode-invalid-byte)
+  (should-error (bencode-decode "01:x")
+                :type 'bencode-invalid-byte)
   ;; Valid inputs
   (should (equal (bencode-decode "5:hello") "hello"))
   (should (equal (bencode-decode "0:") ""))
